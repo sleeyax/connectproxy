@@ -245,11 +245,16 @@ func (cd *connectDialer) Dial(network, addr string) (net.Conn, error) {
 		nc.Close()
 		return nil, err
 	}
+
 	req.Close = false
+
+	if cd.config.Header != nil {
+		req.Header = cd.config.Header
+	}
+
 	if cd.haveAuth {
 		req.Header.Set("Proxy-Authorization", basicAuth(cd.username, cd.password))
 	}
-	req.Header = cd.config.Header
 
 	/* Send the request */
 	err = req.Write(nc)
