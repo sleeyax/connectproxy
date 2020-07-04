@@ -253,7 +253,6 @@ func (cd *connectDialer) Dial(network, addr string) (net.Conn, error) {
 	}
 
 	if cd.haveAuth {
-		fmt.Println(cd.haveAuth)
 		req.Header.Set("Proxy-Authorization", basicAuth(cd.username, cd.password))
 	}
 
