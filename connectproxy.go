@@ -163,43 +163,60 @@ func New(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error) {
 
 // NewWithConfig is like New, but allows control over various options.
 func NewWithConfig(u *url.URL, forward proxy.Dialer, config *Config) (proxy.Dialer, error) {
-	/* Make sure we have an allowable scheme */
-	if "http" != u.Scheme && "https" != u.Scheme {
-		return nil, ErrorUnsupportedScheme(errors.New(
-			"connectproxy: unsupported scheme " + u.Scheme,
-		))
-	}
-
-	/* Need at least an empty config */
-	if nil == config {
-		config = &Config{}
-	}
-
-	/* To be returned */
-	cd := &connectDialer{
-		u:       u,
-		forward: forward,
-		config:  config,
-	}
-
-	/* Work out the TLS server name */
-	if "" == cd.config.ServerName {
-		h, _, err := net.SplitHostPort(u.Host)
-		if nil != err && "missing port in address" == err.Error() {
-			h = u.Host
+	switch u.Scheme {
+	case "socks5", "socks5h":
+		addr := u.Hostname()
+		port := u.Port()
+		if port == "" {
+			port = "1080"
 		}
-		cd.config.ServerName = h
+		var auth *proxy.Auth
+		if u.User != nil {
+			auth = new(proxy.Auth)
+			auth.User = u.User.Username()
+			if p, ok := u.User.Password(); ok {
+				auth.Password = p
+			}
+		}
+		return proxy.SOCKS5("tcp", net.JoinHostPort(addr, port), auth, forward)
+	case "http", "https":
+		/* Need at least an empty config */
+		if nil == config {
+			config = &Config{}
+		}
+
+		/* To be returned */
+		cd := &connectDialer{
+			u:       u,
+			forward: forward,
+			config:  config,
+		}
+
+		/* Work out the TLS server name */
+		if "" == cd.config.ServerName {
+			h, _, err := net.SplitHostPort(u.Host)
+			if nil != err && "missing port in address" == err.Error() {
+				h = u.Host
+			}
+			cd.config.ServerName = h
+		}
+
+		/* Parse out auth */
+		/* Below taken from https://gist.github.com/jim3ma/3750675f141669ac4702bc9deaf31c6b */
+		if nil != u.User {
+			cd.haveAuth = true
+			cd.username = u.User.Username()
+			cd.password, _ = u.User.Password()
+		}
+
+		return cd, nil
+	default:
+		break
 	}
 
-	/* Parse out auth */
-	/* Below taken from https://gist.github.com/jim3ma/3750675f141669ac4702bc9deaf31c6b */
-	if nil != u.User {
-		cd.haveAuth = true
-		cd.username = u.User.Username()
-		cd.password, _ = u.User.Password()
-	}
-
-	return cd, nil
+	return nil, ErrorUnsupportedScheme(errors.New(
+		"connectproxy: unsupported scheme " + u.Scheme,
+	))
 }
 
 // GeneratorWithConfig is like NewWithConfig, but is suitable for passing to
