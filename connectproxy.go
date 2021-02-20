@@ -324,7 +324,7 @@ func (cd *connectDialer) Dial(network, addr string) (net.Conn, error) {
 	return nc, nil
 }
 
-func basicAuth(username, password string) string {
+func basicAuth(username string, password string) string {
 	auth := username + ":" + password
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 }
